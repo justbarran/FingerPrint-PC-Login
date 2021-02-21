@@ -12,24 +12,34 @@
 #include <FlashStorage.h> 
 #include "FPS_GT511C3.h"
 
-#define onboadLED    13
-#define touch_sensor 1
+#define ON_BOARD_LED 13
+#define TOUCH_SENSOR 1
 #define SS_RX 7
 #define SS_TX 6
-#define PIN  
+#define PASS_MAX 33
+#define PASS_TRYS 3
+#define DEFAULT_PASS 1234
+#define ENCRYPT_KEY 1234
 
+#define UNLOCK_TIME 30000 //milliseconds
 
 FPS_GT511C3 fps(SS_RX,SS_TX);
-
-char password[33]= {'7','9','1','9','8','7','1','\0'};
+char devicePassTemp[PASS_MAX];
+char devicePass[PASS_MAX]= {'4','3','2','1','\0'};
+char password[PASS_MAX]= {'7','9','1','9','8','7','1','\0'};
 byte touchStateLast = LOW;
 byte touchState = LOW;
 
 byte menuState = 0;
 byte unlockState = LOW;
+byte passTries = 0;
+
+
+unsigned long unlockTimeLast = 0;
 
 typedef struct {
   boolean valid;
+  byte tries;
   char pass0[32];
   char name1[32];
   char pass1[32];
@@ -37,13 +47,13 @@ typedef struct {
   char pass2[32];
   char name3[32];
   char pass3[32];
-} Person;
+} Passwords;
 
 
 void setup() {
   // put your setup code here, to run once:
-  pinMode(onboadLED, OUTPUT);
-  pinMode(touch_sensor, INPUT);
+  pinMode(ON_BOARD_LED, OUTPUT);
+  pinMode(TOUCH_SENSOR, INPUT);
   SerialUSB.begin(9600);
   Keyboard.begin();
   fps.Open(); //send serial command to initialize fps
@@ -53,47 +63,111 @@ void setup() {
 
 void loop() {
   if(SerialUSB.available()!=0)
-  {    
-    char check = SerialUSB.read();
-    if(check == '0')
+  {        
+    if(unlockState ==LOW)
     {
-      menu_1();
-    }  
-    else if(check == '1')
-    {
-      
-    }     
-    else if(check == '2')
-    {
-      int fingerPrints = fps.GetEnrollCount();
-      SerialUSB.printf("FPS Enrolled: %d \n",fingerPrints);
-    }
-    else if(check == '3')
-    {
-      fps.Open();
-      fps.SetLED(1);
-      Enroll();
-      fps.SetLED(0);
-    }
-    else if (check == '4')
-    {
-      fps.Open();
-      fps.SetLED(1);
-      fps.DeleteAll();
-      fps.SetLED(0);
-      SerialUSB.println("All Prints Deleted");
+      byte i = 0;
+      while(SerialUSB.available()>0)
+      {
+        devicePassTemp[i]=SerialUSB.read();
+        i++;
+      }
+      devicePassTemp[i] = '\0';
+      if(i>=4)
+      {
+        byte j = 0;
+        byte check = 1;
+        while((check == 1)&&(j<=PASS_MAX))
+        {
+          if(devicePassTemp[j]!=devicePass[j])
+          {
+            check = 0;
+          }
+          else
+          {
+            if(devicePass[j]=='\0')
+            {
+              passTries = 0;
+              unlockState = HIGH;
+              unlockTimeLast = millis();
+              check = 0;
+              SerialUSB.println("Device Unlocked");
+              menu_1();
+            }
+          }
+          j++;
+        }
+        if(unlockState == LOW)
+        {
+          passTries++;
+          SerialUSB.println("Invalid Device Password");
+          if(passTries==PASS_TRYS)
+          {
+            SerialUSB.println("MAX TRIES");
+            fps.Open();
+            fps.SetLED(1);
+            fps.DeleteAll();
+            fps.SetLED(0);
+            SerialUSB.println("Factory Clear Done");
+          }
+          else 
+          {
+            SerialUSB.print("Tries Left: ");
+            SerialUSB.println((PASS_TRYS-passTries));
+            SerialUSB.println("Please Enter Device Password");
+          }
+          
+        }
+      }
     }
     else
     {
-      SerialUSB.println(check);
+      char check = SerialUSB.read();
+      unlockTimeLast = millis();
+      if(check == '0')
+      {
+        menu_1();
+      }  
+      else if(check == '1')
+      {
+        
+      }     
+      else if(check == '2')
+      {
+        int fingerPrints = fps.GetEnrollCount();
+        SerialUSB.printf("FPS Enrolled: %d \n",fingerPrints);
+      }
+      else if(check == '3')
+      {
+        Enroll();
+      }
+      else if (check == '4')
+      {
+        fps.Open();
+        fps.SetLED(1);
+        fps.DeleteAll();
+        fps.SetLED(0);
+        SerialUSB.println("All Prints Deleted");
+      }
+      else
+      {
+        SerialUSB.println(check);
+      }
     }
   }
-  
+  if(unlockState == HIGH)
+  {
+    if((millis()-unlockTimeLast) > unlockTimeLast)
+    {
+      SerialUSB.println("Device Locked");
+      unlockState = LOW;
+    }
+  }
   // put your main code here, to run repeatedly:
-  touchState = digitalRead(touch_sensor);
+  touchState = digitalRead(TOUCH_SENSOR);
   if((touchState!=touchStateLast) && (touchState==1))
   {
-    digitalWrite(onboadLED,LOW);
+    digitalWrite(ON_BOARD_LED,LOW);
     fps.Open();
     delay(100);
     if(fps.SetLED(1)==true)
@@ -125,7 +199,7 @@ void loop() {
   }
   else if (touchState==0)
   {
-    digitalWrite(onboadLED,HIGH);
+    digitalWrite(ON_BOARD_LED,HIGH);
     fps.SetLED(0);// turn off the LED inside the fps
   }
   touchStateLast = touchState;
@@ -173,7 +247,8 @@ void menu_1()
 void Enroll()
 {
   // Enroll test
-
+  fps.Open();
+  fps.SetLED(1);
   // find open enroll id
   int enrollid = 0;
   bool usedid = true;
@@ -225,4 +300,5 @@ void Enroll()
     else SerialUSB.println("Failed to capture second finger");
   }
   else SerialUSB.println("Failed to capture first finger");
+  fps.SetLED(0);
 }
