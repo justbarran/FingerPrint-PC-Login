@@ -21,9 +21,10 @@
 #define DEFAULT_PASS 1234
 #define ENCRYPT_KEY 1234
 
-#define UNLOCK_TIME 30000 //milliseconds
+#define UNLOCK_TIME 10000 //milliseconds
+#define ENROLL_TIME 10000 //milliseconds
 
-FPS_GT511C3 fps(SS_RX,SS_TX);
+FPS_GT511C3 fps(Serial1);
 char devicePassTemp[PASS_MAX];
 char devicePass[PASS_MAX]= {'4','3','2','1','\0'};
 char password[PASS_MAX]= {'7','9','1','9','8','7','1','\0'};
@@ -55,8 +56,8 @@ void setup() {
   pinMode(ON_BOARD_LED, OUTPUT);
   pinMode(TOUCH_SENSOR, INPUT);
   SerialUSB.begin(9600);
+  Serial1.begin(9600);
   Keyboard.begin();
-  fps.Open(); //send serial command to initialize fps
   delay(1000);
   SerialUSB.println("JustBarran FingerPrint Login");
 }
@@ -139,7 +140,8 @@ void loop() {
       }
       else if(check == '3')
       {
-        Enroll();
+        //Enroll();
+        //menu_1();
       }
       else if (check == '4')
       {
@@ -151,13 +153,14 @@ void loop() {
       }
       else
       {
-        SerialUSB.println(check);
+        //SerialUSB.println(check);
+        SerialUSB.println("Option Invalid");
       }
     }
   }
   if(unlockState == HIGH)
   {
-    if((millis()-unlockTimeLast) > unlockTimeLast)
+    if((millis()-unlockTimeLast) > UNLOCK_TIME)
     {
       SerialUSB.println("Device Locked");
       unlockState = LOW;
@@ -167,9 +170,10 @@ void loop() {
   touchState = digitalRead(TOUCH_SENSOR);
   if((touchState!=touchStateLast) && (touchState==1))
   {
-    digitalWrite(ON_BOARD_LED,LOW);
+    digitalWrite(ON_BOARD_LED,LOW);   
+    SerialUSB.println("FPS OPEN");
     fps.Open();
-    delay(100);
+    SerialUSB.print("ON LED? ");
     if(fps.SetLED(1)==true)
     {
       SerialUSB.println("LED ON");
@@ -195,7 +199,10 @@ void loop() {
         SerialUSB.println("No Finger Press");
       }
     }
-    fps.Close();
+    else
+    {
+      SerialUSB.println("LED FAIL");
+    }
   }
   else if (touchState==0)
   {
@@ -247,7 +254,11 @@ void menu_1()
 void Enroll()
 {
   // Enroll test
+  long enrollTimeOut = millis();
+  byte checkState = 0;
   fps.Open();
+  
+  
   fps.SetLED(1);
   // find open enroll id
   int enrollid = 0;
