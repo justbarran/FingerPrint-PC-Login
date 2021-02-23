@@ -27,12 +27,12 @@
 #define ENCRYPT_KEY 1234
 
 #define UNLOCK_TIME 10000 //milliseconds
-#define ENROLL_TIME 5000 //milliseconds
+#define ENROLL_TIME 10000 //milliseconds
 
+char defaultName1[PASS_MAX]= {'j','u','s','t','B','a','r','r','a','n','\0'};
 
-char devicePassTemp[PASS_MAX];
-char devicePass[PASS_MAX]= {'4','3','2','1','\0'};
-char password[PASS_MAX]= {'7','9','1','9','8','7','1','\0'};
+char passwordTemp1[PASS_MAX];
+char passwordTemp2[PASS_MAX];
 
 uint8_t touchStateLast = LOW;
 uint8_t touchState = LOW;
@@ -47,31 +47,56 @@ typedef struct {
   uint8_t valid;
   uint8_t tries;
   uint8_t fpsID[16];
-  char pass0[32];
-  char name1[32];
-  char pass1[32];
-  char name2[32];
-  char pass2[32];
-  char name3[32];
-  char pass3[32];
+  char pass0[PASS_MAX];
+  char name1[PASS_MAX];
+  char pass1[PASS_MAX];
+  char name2[PASS_MAX];
+  char pass2[PASS_MAX];
+  char name3[PASS_MAX];
+  char pass3[PASS_MAX];
 } Passwords;
 
-GT_521F fps(Serial1);
+Passwords check;
+// Reserve a portion of flash memory
+// call it "my_flash_store".
+FlashStorage(my_flash_store, Passwords);
+GT_521F fps(Serial1); // Use any aviable Serial object 
 
-void setup() {
-  // put your setup code here, to run once:
+void setup()
+{
+  delay(5000);
   SerialUSB.begin(9600);
   pinMode(ON_BOARD_LED, OUTPUT);
   pinMode(TOUCH_SENSOR, INPUT);  
-  Keyboard.begin();
-  SerialUSB.println("fps.begin");
+  
+  SerialUSB.println("START");
+
   while(!fps.begin(9600))
   {
     SerialUSB.print(".");
     digitalWrite(ON_BOARD_LED,!digitalRead(ON_BOARD_LED)); 
   }
   digitalWrite(ON_BOARD_LED,HIGH);
+  fps.cmosLed(false);
+  check = my_flash_store.read();
+  if(check.valid==false)
+  {
+    setDefaults();
+  }
+  SerialUSB.println("Just Barran Subscribe to my Youtube Channel");
+  //Comment out this
+  /*
+  SerialUSB.print("DevicePass: ");
+  SerialUSB.println(check.pass0);
+  SerialUSB.print("Name 1: ");
+  SerialUSB.println(check.name1);
+  SerialUSB.print("Pass 1: ");
+  SerialUSB.println(check.pass1);
+  */
+  SerialUSB.println("Enter Password");
+  Keyboard.begin(); 
 }
+
 
 void loop() {
  
@@ -82,28 +107,28 @@ void loop() {
       byte i = 0;
       while(SerialUSB.available()>0)
       {
-        devicePassTemp[i]=SerialUSB.read();
+        passwordTemp1[i]=SerialUSB.read();
         i++;
       }
-      devicePassTemp[i] = '\0';
+      passwordTemp1[i] = '\0';
       if(i>=4)
       {
         byte j = 0;
-        byte check = 1;
-        while((check == 1)&&(j<=PASS_MAX))
+        byte checks = 1;
+        while((checks == 1)&&(j<=PASS_MAX))
         {
-          if(devicePassTemp[j]!=devicePass[j])
+          if(passwordTemp1[j]!=check.pass0[j])
           {
-            check = 0;
+            checks = 0;
           }
           else
           {
-            if(devicePass[j]=='\0')
+            if(check.pass0[j]=='\0')
             {
               passTries = 0;
               unlockState = HIGH;
               unlockTimeLast = millis();
-              check = 0;
+              checks = 0;
               SerialUSB.println("Device Unlocked");
               menu_1();
             }
@@ -117,6 +142,7 @@ void loop() {
           if(passTries==PASS_TRYS)
           {
             SerialUSB.println("MAX TRIES");
+            setDefaults();
             SerialUSB.println("Factory Clear Done");
           }
           else 
@@ -131,17 +157,149 @@ void loop() {
     }
     else 
     {
-      char check = SerialUSB.read();
+      char getSerial = SerialUSB.read();
       unlockTimeLast = millis();
-      if(check == '0')
+      if(getSerial == '0')
       {
         menu_1();
       }  
-      else if(check == '1')
+      else if(getSerial == '1')
       {
-        
+        SerialUSB.println("Enter New Device Password");
+        uint32_t passwordWaitTime = millis();
+        uint8_t words1=0;
+        uint8_t words2=0;
+        while(SerialUSB.available()>0 || ((millis()-passwordWaitTime)<ENROLL_TIME))
+        {
+          if(SerialUSB.available()>0)
+          {
+            passwordTemp1[words1]=SerialUSB.read();
+            words1++;
+          }          
+        }
+        if(words1<4 || words2>(PASS_MAX-1))
+        {
+          SerialUSB.println("TimeOut/ Invalid");
+        }
+        else
+        {
+          passwordTemp1[words1]='\0';
+          SerialUSB.println("Enter Password Again");
+          passwordWaitTime = millis();
+          words2=0;
+          while(SerialUSB.available()>0 || ((millis()-passwordWaitTime)<ENROLL_TIME))
+          {
+            if(SerialUSB.available()>0)
+            {
+              passwordTemp2[words2]=SerialUSB.read();
+              words2++;
+            }          
+          }
+          if(words2<4 || words2>(PASS_MAX-1))
+          {
+            SerialUSB.println("TimeOut / Invalid");
+          }
+          else
+          {
+           if(words2==words1)
+           {
+            uint8_t test = 1;
+            for(int i=0;i<words1;i++)
+            {
+              if(passwordTemp1[i]!=passwordTemp2[i])
+              {
+                SerialUSB.println("Passwords dont match");
+                test = 0;
+                break;
+              }
+            }
+            if(test ==1)
+            {
+              for(int i=0;i<PASS_MAX;i++)
+              {
+                check.pass0[i] = passwordTemp1[i];
+              }
+             my_flash_store.write(check);
+             SerialUSB.println("Device Password Updated");
+            }
+            
+           }
+           else
+           {
+            SerialUSB.println("Passwords dont match");
+           }
+          }
+        }        
       }     
-      else if(check == '2')
+       else if(getSerial == '2')
+      {
+        SerialUSB.println("Enter New Password 1");
+        uint32_t passwordWaitTime = millis();
+        uint8_t words1=0;
+        uint8_t words2=0;
+        while(SerialUSB.available()>0 || ((millis()-passwordWaitTime)<ENROLL_TIME))
+        {
+          if(SerialUSB.available()>0)
+          {
+            passwordTemp1[words1]=SerialUSB.read();
+            words1++;
+          }          
+        }
+        if(words1<4|| words2>(PASS_MAX-1))
+        {
+          SerialUSB.print("TimeOut/ Invalid");
+        }
+        else
+        {
+          passwordTemp1[words1]='\0';
+          SerialUSB.println("Enter Password Again");
+          passwordWaitTime = millis();
+          words2=0;
+          while(SerialUSB.available()>0 || ((millis()-passwordWaitTime)<ENROLL_TIME))
+          {
+            if(SerialUSB.available()>0)
+            {
+              passwordTemp2[words2]=SerialUSB.read();
+              words2++;
+            }          
+          }
+          if(words2<4 || words2>(PASS_MAX-1))
+          {
+            SerialUSB.println("TimeOut/ Invalid");
+          }
+          else
+          {
+           if(words2==words1)
+           {
+            uint8_t test = 1;
+            for(int i=0;i<words1;i++)
+            {
+              if(passwordTemp1[i]!=passwordTemp2[i])
+              {
+                SerialUSB.println("Passwords dont match");
+                test = 0;
+                break;
+              }
+            }
+            if(test ==1)
+            {
+              for(int i=0;i<PASS_MAX;i++)
+              {
+                check.pass1[i] = passwordTemp1[i];
+              }
+
+             my_flash_store.write(check);
+             SerialUSB.println("Password 1 Updated");
+            }            
+           }
+           else
+           {
+            SerialUSB.println("Passwords dont match");
+           }
+          }
+        }        
+      }  
+      else if(getSerial == '3')
       {
         fps.open(false);
         uint16_t fingerPrintCount = fps.getEnrollCount();
@@ -156,14 +314,14 @@ void loop() {
           SerialUSB.println(fingerPrintCount);
         }
       }
-      else if(check == '3')
+      else if(getSerial == '4')
       {
         uint16_t State = FingerPrintEnrollment();
         if(State==NO_ERROR)
         {
-          SerialUSB.print("Add Finger Success ID: ");
-          SerialUSB.println(fps.getEnrollCount());
+          SerialUSB.println("Add Finger Success");
         }
+        
         else
         {
           SerialUSB.print("Add Finger Fail ERROR: ");
@@ -171,7 +329,7 @@ void loop() {
         }
 
       }
-      else if (check == '4')
+      else if (getSerial == '5')
       {
           uint16_t openStatus = fps.open(true);
           if(openStatus == NO_ERROR) 
@@ -230,7 +388,7 @@ void loop() {
             SerialUSB.println();
           }
       }
-      else if (check == '5')
+      else if (getSerial == '6')
       {
         uint16_t State = fps.deleteAll();
         if(State==NO_ERROR)
@@ -286,7 +444,7 @@ void loop() {
             checkFinger = fps.identify();
             if(checkFinger < PRINTS_MAX)
             {
-              pc_login(password);
+              pc_login(check.pass1);
             }
           }
         }
@@ -455,15 +613,49 @@ uint8_t FingerPrintEnrollment()
   fps.cmosLed(false);
   return enrollState;
 }
+void setDefaults(void)
+{
+    SerialUSB.println("NVS CLEAR");
+    char one = '1';
+    for(int i=0;i<8;i++)
+    {
+      check.pass0[i]=one;
+      check.pass1[i]=one;
+      check.pass0[i+1]='\0';
+      check.pass0[i+1]='\0';
+      one++;
+    }
+    
+    for(int i=0;i<PASS_MAX;i++)
+    {
+      check.name1[i]=defaultName1[i];
+    }
+      check.valid = true;
+    my_flash_store.write(check);
+    SerialUSB.println("Defauts Saved");
+    fps.open(false);
+    uint16_t State = fps.deleteAll();
+    if(State==NO_ERROR)
+    {
+      SerialUSB.println("-All Prints Deleted");
+    }  
+    else
+    {
+      SerialUSB.print("-Delete Failed: "); 
+      SerialUSB.println(State,HEX);    
+    }
+}
+
 
 void menu_1()
 {
   SerialUSB.println("Menu Options:");
   SerialUSB.println("1: Change Device Password");
-  SerialUSB.println("2: Check FingerPrint Count");
-  SerialUSB.println("3: Add FingerPrint");
-  SerialUSB.println("4: Check if Finger is enrolled");
-  SerialUSB.println("5: Remove All FingerPrints");
+  SerialUSB.println("2: Change Stored Password 1");
+  SerialUSB.println("3: Check FingerPrint Count");
+  SerialUSB.println("4: Add FingerPrint");
+  SerialUSB.println("5: Check if Finger is enrolled");
+  SerialUSB.println("6: Remove All FingerPrints");
 
   //SerialUSB.println("Option Invalid");
 }
