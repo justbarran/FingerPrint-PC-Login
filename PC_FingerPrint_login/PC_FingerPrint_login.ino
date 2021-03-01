@@ -12,6 +12,7 @@
 
 
 #include "Keyboard.h"
+//#include "Mouse.h"
 #include <FlashStorage.h> 
 #include <GT_521F.h>
 
@@ -64,11 +65,12 @@ GT_521F fps(Serial1); // Use any aviable Serial object
 
 void setup()
 {
-  delay(5000);
+  delay(3000);
   SerialUSB.begin(9600);
   pinMode(ON_BOARD_LED, OUTPUT);
   pinMode(TOUCH_SENSOR, INPUT);  
-  
+
+
   SerialUSB.println("START");
 
   while(!fps.begin(9600))
@@ -94,6 +96,7 @@ void setup()
   SerialUSB.println(check.pass1);
   */
   SerialUSB.println("Enter Password");
+  //Mouse.begin();
   Keyboard.begin(); 
 }
 
@@ -481,7 +484,8 @@ void loop() {
 
 void pc_login(char * pass)
 {
-  Keyboard.write(KEY_RETURN);
+  //Mouse.click(MOUSE_LEFT );
+  Keyboard.write(KEY_UP_ARROW);
   delay(250);
   Keyboard.print(pass);
   delay(250);
