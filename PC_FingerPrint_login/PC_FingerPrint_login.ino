@@ -10,6 +10,7 @@
 *
 */
 
+ 
 
 #include "Keyboard.h"
 //#include "Mouse.h"
@@ -22,10 +23,10 @@
 #define SS_TX 6
 #define PASS_MAX 33
 #define PRINTS_MAX 200 //200=GT_521F32 3000=GT_521F52
-#define PASS_TRYS 3
+#define PASS_TRYS_MAX 3
 #define FINGER_TRYS 3
-#define DEFAULT_PASS 1234
-#define ENCRYPT_KEY 1234
+
+
 
 #define UNLOCK_TIME 10000 //milliseconds
 #define ENROLL_TIME 10000 //milliseconds
@@ -40,7 +41,7 @@ uint8_t touchState = LOW;
 uint8_t menuState = 0;
 uint8_t unlockState = LOW;
 uint8_t passTries = 0;
-
+uint8_t serialFlag = 0;
 
 uint32_t unlockTimeLast = 0;
 
@@ -58,21 +59,14 @@ typedef struct {
 } Passwords;
 
 Passwords check;
-// Reserve a portion of flash memory
-// call it "my_flash_store".
 FlashStorage(my_flash_store, Passwords);
-GT_521F fps(Serial1); // Use any aviable Serial object 
+GT_521F fps(Serial1); 
 
 void setup()
 {
-  delay(3000);
   SerialUSB.begin(9600);
   pinMode(ON_BOARD_LED, OUTPUT);
   pinMode(TOUCH_SENSOR, INPUT);  
-
-
-  SerialUSB.println("START");
-
   while(!fps.begin(9600))
   {
     SerialUSB.print(".");
@@ -85,26 +79,25 @@ void setup()
   {
     setDefaults();
   }
-  SerialUSB.println("Just Barran Subscribe to my Youtube Channel");
-  //Comment out this
-  /*
-  SerialUSB.print("DevicePass: ");
-  SerialUSB.println(check.pass0);
-  SerialUSB.print("Name 1: ");
-  SerialUSB.println(check.name1);
-  SerialUSB.print("Pass 1: ");
-  SerialUSB.println(check.pass1);
-  */
-  SerialUSB.println("Enter Password");
-  //Mouse.begin();
   Keyboard.begin(); 
+  fps.cmosLed(true);
+  delay(1000);
+  fps.cmosLed(false);
 }
 
 
 void loop() {
- 
-  if(SerialUSB.available()!=0)
-  {        
+
+  if(serialFlag == 0)
+  {
+      SerialUSB.println("Check out \"Just Barran\" on Youtube");  //Remove this line
+      SerialUSB.println("Enter Password");
+      serialFlag = 1;
+  } 
+  
+  if(SerialUSB.available()> 0)
+  {  
+    serialFlag = 0;      
     if(unlockState ==LOW)
     {
       byte i = 0;
@@ -116,6 +109,7 @@ void loop() {
       passwordTemp1[i] = '\0';
       if(i>=4)
       {
+        serialFlag = 1; 
         byte j = 0;
         byte checks = 1;
         while((checks == 1)&&(j<=PASS_MAX))
@@ -142,8 +136,9 @@ void loop() {
         {
           passTries++;
           SerialUSB.println("Invalid Device Password");
-          if(passTries==PASS_TRYS)
+          if(passTries>PASS_TRYS_MAX)
           {
+            passTries = 0;
             SerialUSB.println("MAX TRIES");
             setDefaults();
             SerialUSB.println("Factory Clear Done");
@@ -151,15 +146,15 @@ void loop() {
           else 
           {
             SerialUSB.print("Tries Left: ");
-            SerialUSB.println((PASS_TRYS-passTries));
+            SerialUSB.println((PASS_TRYS_MAX-passTries));
             SerialUSB.println("Please Enter Device Password");
-          }
-          
+          }   
         }
       }
     }
     else 
     {
+      serialFlag = 1; 
       char getSerial = SerialUSB.read();
       unlockTimeLast = millis();
       if(getSerial == '0')
@@ -419,7 +414,7 @@ void loop() {
       unlockState = LOW;
     }
   }
-  // put your main code here, to run repeatedly:
+
   touchState = digitalRead(TOUCH_SENSOR);
   if((touchState!=touchStateLast) && (touchState==1) && (unlockState ==LOW))
   {
@@ -558,7 +553,7 @@ uint8_t FingerPrintEnrollment()
                 {
                   SerialUSB.print("Enroll Failed: ");
                   SerialUSB.println(enrollState,HEX);
-                }                
+               }                
               }
               else
               {
