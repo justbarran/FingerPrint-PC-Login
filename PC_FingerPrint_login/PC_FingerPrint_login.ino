@@ -27,7 +27,7 @@
 #define FINGER_TRYS 3
 
 
-
+#define SLEEP_TIME  30000 //milliseconds
 #define UNLOCK_TIME 10000 //milliseconds
 #define ENROLL_TIME 10000 //milliseconds
 
@@ -40,10 +40,12 @@ uint8_t touchStateLast = LOW;
 uint8_t touchState = LOW;
 uint8_t menuState = 0;
 uint8_t unlockState = LOW;
+uint8_t sleepState = LOW;
 uint8_t passTries = 0;
 uint8_t serialFlag = 0;
 
 uint32_t unlockTimeLast = 0;
+uint32_t sleepTimeLast = 0;
 
 typedef struct {
   uint8_t valid;
@@ -88,17 +90,15 @@ void setup()
 
 void loop() {
 
-  if(serialFlag == 0)
-  {
-      SerialUSB.println("Check out \"Just Barran\" on Youtube");  //Remove this line
-      SerialUSB.println("Enter Password");
-      serialFlag = 1;
-  } 
-  
+
   if(SerialUSB.available()> 0)
   {  
-    serialFlag = 0;      
-    if(unlockState ==LOW)
+    serialFlag = 0;
+    if(sleepState==HIGH)
+    {
+      SerialUSB.read();      
+    }
+    else if(unlockState ==LOW && sleepState ==LOW)
     {
       byte i = 0;
       while(SerialUSB.available()>0)
@@ -152,7 +152,7 @@ void loop() {
         }
       }
     }
-    else 
+    else if (unlockState ==HIGH)
     {
       serialFlag = 1; 
       char getSerial = SerialUSB.read();
@@ -404,21 +404,20 @@ void loop() {
         //SerialUSB.println(check);
         SerialUSB.println("-Option Invalid");
       }
-    }
-  }
-  if(unlockState == HIGH)
-  {
-    if((millis()-unlockTimeLast) > UNLOCK_TIME)
-    {
-      SerialUSB.println("-Device Locked");
-      unlockState = LOW;
+      sleepState = LOW;
+      sleepTimeLast = millis(); 
+      unlockTimeLast = millis();
     }
   }
 
   touchState = digitalRead(TOUCH_SENSOR);
   if((touchState!=touchStateLast) && (touchState==1) && (unlockState ==LOW))
   {
-    digitalWrite(ON_BOARD_LED,LOW);   
+    digitalWrite(ON_BOARD_LED,LOW); 
+    SerialUSB.println("Check out \"Just Barran\" on Youtube");  //Remove this line
+    SerialUSB.println("Enter Password");
+    sleepState = LOW;
+    sleepTimeLast = millis(); 
     uint16_t openStatus = fps.open(true);
     if(openStatus == NO_ERROR) 
     {
@@ -446,11 +445,6 @@ void loop() {
             }
           }
         }
-        else
-        {
-          SerialUSB.print("FINGER FAIL: ");
-          SerialUSB.println(checkFinger,HEX);
-        }
       }
       else
       {
@@ -473,7 +467,25 @@ void loop() {
     digitalWrite(ON_BOARD_LED,HIGH);
   }
   touchStateLast = touchState;
-  delay(100);
+  
+  delay(10);
+  
+  if(unlockState == HIGH)
+  {
+    if((millis()-unlockTimeLast) > UNLOCK_TIME)
+    {
+      SerialUSB.println("-Device Locked");
+      unlockState = LOW;
+    }
+  }
+  if(sleepState == LOW)
+  {
+    if((millis()-sleepTimeLast) > SLEEP_TIME)
+    {
+      sleepState = HIGH;
+      SerialUSB.println("-Device Sleep");
+    }
+  }
 }
 
 
@@ -481,9 +493,9 @@ void pc_login(char * pass)
 {
   //Mouse.click(MOUSE_LEFT );
   Keyboard.write(KEY_UP_ARROW);
-  delay(250);
+  delay(500);
   Keyboard.print(pass);
-  delay(250);
+  delay(500);
   Keyboard.write(KEY_RETURN);
 }
 
@@ -644,7 +656,6 @@ void setDefaults(void)
       SerialUSB.println(State,HEX);    
     }
 }
-
 
 void menu_1()
 {
