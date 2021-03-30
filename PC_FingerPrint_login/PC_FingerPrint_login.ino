@@ -245,7 +245,7 @@ void loop() {
         }
         if(words1<4|| words2>(PASS_MAX-1))
         {
-          SerialUSB.print("TimeOut/ Invalid");
+          SerialUSB.println("TimeOut/ Invalid");
         }
         else
         {
@@ -490,16 +490,15 @@ void loop() {
   }
 }
 
-
 void pc_login(char * pass)
 {
   //Mouse.click(MOUSE_LEFT );
   Keyboard.write(KEY_UP_ARROW);
-  delay(500);
+  delay(250);
   Keyboard.print(pass);
-  delay(500);
+  delay(250);
   Keyboard.write(KEY_RETURN);
-  delay(500);
+  delay(250);
 }
 
 uint8_t FingerPrintEnrollment()
