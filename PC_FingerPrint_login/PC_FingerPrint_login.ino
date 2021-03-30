@@ -10,7 +10,6 @@
 *
 */
 
- 
 
 #include "Keyboard.h"
 //#include "Mouse.h"
@@ -27,7 +26,7 @@
 #define FINGER_TRYS 3
 
 
-#define SLEEP_TIME  30000 //milliseconds
+#define SLEEP_TIME  20000 //milliseconds
 #define UNLOCK_TIME 10000 //milliseconds
 #define ENROLL_TIME 10000 //milliseconds
 
@@ -54,18 +53,18 @@ typedef struct {
   char pass0[PASS_MAX];
   char name1[PASS_MAX];
   char pass1[PASS_MAX];
-  char name2[PASS_MAX];
-  char pass2[PASS_MAX];
-  char name3[PASS_MAX];
-  char pass3[PASS_MAX];
 } Passwords;
 
 Passwords check;
 FlashStorage(my_flash_store, Passwords);
+// Note: the area of flash memory reserved for the variable is
+// lost every time the sketch is uploaded on the board.
+
 GT_521F fps(Serial1); 
 
 void setup()
 {
+  delay(1000);
   SerialUSB.begin(9600);
   pinMode(ON_BOARD_LED, OUTPUT);
   pinMode(TOUCH_SENSOR, INPUT);  
@@ -156,6 +155,7 @@ void loop() {
     {
       serialFlag = 1; 
       char getSerial = SerialUSB.read();
+      sleepTimeLast = millis(); 
       unlockTimeLast = millis();
       if(getSerial == '0')
       {
@@ -413,6 +413,7 @@ void loop() {
   touchState = digitalRead(TOUCH_SENSOR);
   if((touchState!=touchStateLast) && (touchState==1) && (unlockState ==LOW))
   {
+    SerialUSB.begin(9600);
     digitalWrite(ON_BOARD_LED,LOW); 
     SerialUSB.println("Check out \"Just Barran\" on Youtube");  //Remove this line
     SerialUSB.println("Enter Password");
@@ -484,6 +485,7 @@ void loop() {
     {
       sleepState = HIGH;
       SerialUSB.println("-Device Sleep");
+      SerialUSB.end();
     }
   }
 }
@@ -497,6 +499,7 @@ void pc_login(char * pass)
   Keyboard.print(pass);
   delay(500);
   Keyboard.write(KEY_RETURN);
+  delay(500);
 }
 
 uint8_t FingerPrintEnrollment()
@@ -641,7 +644,6 @@ void setDefaults(void)
     {
       check.name1[i]=defaultName1[i];
     }
-      check.valid = true;
     my_flash_store.write(check);
     SerialUSB.println("Defauts Saved");
     fps.open(false);
@@ -655,6 +657,7 @@ void setDefaults(void)
       SerialUSB.print("-Delete Failed: "); 
       SerialUSB.println(State,HEX);    
     }
+    check.valid = true;
 }
 
 void menu_1()
