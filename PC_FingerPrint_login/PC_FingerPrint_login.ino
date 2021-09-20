@@ -54,6 +54,13 @@ Passwords storeNVS;
 FlashStorage(my_flash_store, Passwords);
 // Note: the area of flash memory reserved for the variable is
 // lost every time the sketch is uploaded on the board.
+
+
+//Uncomment for Software Serial
+//SoftwareSerial mySerial (7, 6);
+//GT_521F fps(mySerial); 
+
+//Uncomment for Hardware Serial
 GT_521F fps(Serial1); 
 
 //Prototypes
