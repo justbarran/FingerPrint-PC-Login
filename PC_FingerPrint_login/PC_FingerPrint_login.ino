@@ -26,6 +26,7 @@
 #define SLEEP_TIME  20000 //milliseconds
 #define UNLOCK_TIME 10000 //milliseconds
 #define ENROLL_TIME 10000 //milliseconds
+#define SerialUSB Serial
 
 char defaultName1[PASS_MAX]= "justbarran";
 char passwordTemp1[PASS_MAX];
@@ -576,7 +577,7 @@ void pclogin(char * pass)
   Keyboard.write(KEY_UP_ARROW);
   delay(300);
   Keyboard.print(pass);
-  delay(100);
+  delay(300);
   Keyboard.write(KEY_RETURN);
   delay(100);
 }
@@ -647,6 +648,7 @@ uint8_t FingerPrintEnrollment(void)
                 {
                   SerialUSB.print("Enroll Failed: ");
                   SerialUSB.println(enrollState,HEX);
+                  break;
                }                
               }
               else
@@ -657,8 +659,7 @@ uint8_t FingerPrintEnrollment(void)
               }
               enrollTimeOut = millis();
               SerialUSB.println("Remove Finger");
-              enrollState = FINGER_IS_PRESSED;
-              while((enrollState == FINGER_IS_PRESSED) && ((millis()-enrollTimeOut)<ENROLL_TIME))
+              while((enrollState == NO_ERROR) && ((millis()-enrollTimeOut)<ENROLL_TIME))
               {
                 enrollState = fps.isPressFinger();
                 delay(5);
@@ -745,3 +746,8 @@ void menu_1(void)
   SerialUSB.println("===================================");
   SerialUSB.println();
 }
+
+
+
+
+
